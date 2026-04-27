@@ -82,16 +82,16 @@ function exploreCaptures(board, r, c, piece, path, captured, results, originR, o
 
   for (const [dr, dc] of dirs) {
     if (king) {
+      // ฮอสกวาดทแยงหาตัวฝ่ายตรงข้าม แต่ต้องลงที่ช่องถัดจากตัวที่กิน 1 ช่องเท่านั้น
       let nr = r + dr, nc = c + dc
       while (inBounds(nr, nc) && board[nr][nc] === 0) { nr += dr; nc += dc }
       if (!inBounds(nr, nc)) continue
       if (sideOf(board[nr][nc]) !== -side) continue
       if (captured.some(([cr2, cc2]) => cr2 === nr && cc2 === nc)) continue
-      let lr = nr + dr, lc = nc + dc
-      while (inBounds(lr, lc) && board[lr][lc] === 0) {
-        possibilities.push({ lr, lc, capR: nr, capC: nc })
-        lr += dr; lc += dc
-      }
+      const lr = nr + dr, lc = nc + dc
+      if (!inBounds(lr, lc)) continue
+      if (board[lr][lc] !== 0) continue
+      possibilities.push({ lr, lc, capR: nr, capC: nc })
     } else {
       const mr = r + dr, mc = c + dc
       const lr = r + dr * 2, lc = c + dc * 2
