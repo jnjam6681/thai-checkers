@@ -6,7 +6,7 @@ import {
   countMaterial, checkWinner
 } from './game/rules.js'
 import {
-  chooseBotMove, recommendMoveForPlayer, explainMove
+  chooseBotMove, recommendMoveForPlayer, explainMove, explainRecommendation
 } from './game/ai.js'
 
 const DIFFICULTIES = [
@@ -24,6 +24,8 @@ export default function App() {
   const [lastMove, setLastMove] = useState(null)
   const [winner, setWinner] = useState(0)
   const [recommendedMove, setRecommendedMove] = useState(null)
+  const [recAnalysis, setRecAnalysis] = useState(null)
+  const [recReasons, setRecReasons] = useState([])
   const [moveExplanation, setMoveExplanation] = useState('')
   const [thinking, setThinking] = useState(false)
   const [history, setHistory] = useState([])    // [{ board, turn }]
@@ -119,6 +121,8 @@ export default function App() {
     setOrigin(null)
     setPartialPath([])
     setRecommendedMove(null)
+    setRecAnalysis(null)
+    setRecReasons([])
     setMoveExplanation(`คุณ: ${explainMove(board, move, 1)}`)
     const w = checkWinner(next, -1)
     if (w !== 0) { setWinner(w); return }
@@ -147,12 +151,19 @@ export default function App() {
 
   function handleHint() {
     if (turn !== 1 || winner !== 0 || thinking) return
-    const depth = difficulty === 'hard' ? 5 : difficulty === 'medium' ? 4 : 3
-    const rec = recommendMoveForPlayer(board, depth)
-    if (rec?.move) {
-      setRecommendedMove(rec.move)
-      setMoveExplanation('💡 แนะนำ: ' + explainMove(board, rec.move, 1))
-    }
+    setThinking(true)
+    setMoveExplanation('🤔 โค้ชกำลังคิด... (ใช้กำลังเดียวกับบอท)')
+    // ปล่อยให้ React render สถานะ thinking ก่อนเริ่มคำนวณ
+    setTimeout(() => {
+      const analysis = recommendMoveForPlayer(board, difficulty)
+      if (analysis?.move) {
+        setRecommendedMove(analysis.move)
+        setRecAnalysis(analysis)
+        setRecReasons(explainRecommendation(board, analysis))
+        setMoveExplanation('💡 ดูคำแนะนำในแผงด้านขวา')
+      }
+      setThinking(false)
+    }, 60)
   }
 
   function handleAutoPlayHint() {
@@ -164,8 +175,8 @@ export default function App() {
     setBoard(createInitialBoard())
     setTurn(1); setOrigin(null); setPartialPath([])
     setLastMove(null); setWinner(0)
-    setRecommendedMove(null); setMoveExplanation('')
-    setHistory([]); setThinking(false)
+    setRecommendedMove(null); setRecAnalysis(null); setRecReasons([])
+    setMoveExplanation(''); setHistory([]); setThinking(false)
   }
 
   function handleUndo() {
@@ -183,7 +194,8 @@ export default function App() {
     setBoard(snapshot.board)
     setHistory(h)
     setTurn(1); setOrigin(null); setPartialPath([])
-    setLastMove(null); setWinner(0); setRecommendedMove(null)
+    setLastMove(null); setWinner(0)
+    setRecommendedMove(null); setRecAnalysis(null); setRecReasons([])
   }
 
   const material = countMaterial(board)
@@ -289,13 +301,55 @@ export default function App() {
                 <div className="explain">
                   {moveExplanation || 'เลือกตัวหมาก แล้วระบบจะแสดงตาที่เดินได้ — ลองกด "💡 แนะนำหมาก" เพื่อให้โค้ชแนะนำการเดินที่ดีที่สุด'}
                 </div>
-                {recommendedMove && (
+                {recAnalysis && (
                   <div className="rec-box">
-                    <div>🎯 แนะนำเดิน:</div>
-                    <code>
-                      {coordToNotation(recommendedMove.from)} → {' '}
-                      {recommendedMove.path.map(p => coordToNotation(p)).join(' → ')}
+                    <div className="rec-header">
+                      <span>🎯 เดินที่แนะนำ</span>
+                      <span className="rec-depth">depth {recAnalysis.depth}</span>
+                    </div>
+                    <code className="rec-move-code">
+                      {coordToNotation(recAnalysis.move.from)} →{' '}
+                      {recAnalysis.move.path.map(p => coordToNotation(p)).join(' → ')}
                     </code>
+
+                    {recReasons.length > 0 && (
+                      <ul className="rec-reasons">
+                        {recReasons.map((r, i) => <li key={i}>{r}</li>)}
+                      </ul>
+                    )}
+
+                    {recAnalysis.pv && recAnalysis.pv.length > 1 && (
+                      <div className="rec-section">
+                        <div className="rec-subhead">🎬 คาดการณ์ {Math.min(recAnalysis.pv.length, 5)} ตา</div>
+                        <ol className="pv-list">
+                          {recAnalysis.pv.slice(0, 5).map((p, i) => (
+                            <li key={i}>
+                              <span className={p.side === 1 ? 'p-side' : 'b-side'}>
+                                {p.side === 1 ? 'คุณ' : 'บอท'}
+                              </span>
+                              <code>{moveToText(p.move)}</code>
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+
+                    {recAnalysis.ranked && recAnalysis.ranked.length > 1 && (
+                      <details className="alt-details">
+                        <summary>📊 ตัวเลือกอื่น ({recAnalysis.ranked.length - 1})</summary>
+                        <ul className="alt-list">
+                          {recAnalysis.ranked.slice(1, 4).map((r, i) => {
+                            const gap = recAnalysis.ranked[0].score - r.score
+                            return (
+                              <li key={i}>
+                                <code>{moveToText(r.move)}</code>
+                                {gap > 0 && <span className="gap">−{gap.toFixed(0)}</span>}
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      </details>
+                    )}
                   </div>
                 )}
               </>
@@ -310,6 +364,11 @@ export default function App() {
       </footer>
     </div>
   )
+}
+
+function moveToText(m) {
+  return coordToNotation(m.from) + '→' + m.path.map(coordToNotation).join('→') +
+    (m.captures?.length ? ` (×${m.captures.length})` : '')
 }
 
 function coordToNotation([r, c]) {

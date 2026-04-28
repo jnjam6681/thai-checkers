@@ -345,15 +345,112 @@ html, body, #root {
   background: rgba(95, 208, 255, 0.08);
   border: 1px solid rgba(95, 208, 255, 0.3);
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 10px 12px;
   font-size: 13px;
 }
-.rec-box code {
+.rec-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  color: var(--rec);
+  font-weight: 500;
+}
+.rec-depth {
+  font-size: 10px;
+  color: var(--muted);
+  background: rgba(95, 208, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-weight: 400;
+}
+.rec-move-code {
   display: block;
-  margin-top: 4px;
   font-family: 'SF Mono', Menlo, monospace;
   color: var(--rec);
+  font-size: 14px;
+  margin-bottom: 8px;
   letter-spacing: 0.5px;
+  padding: 4px 8px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 4px;
+}
+.rec-reasons {
+  margin: 6px 0 8px;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #d6d6dc;
+}
+.rec-reasons li { margin-bottom: 3px; }
+.rec-section {
+  margin-top: 8px;
+  border-top: 1px solid rgba(95, 208, 255, 0.15);
+  padding-top: 8px;
+}
+.rec-subhead {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.pv-list {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #c0c0c8;
+}
+.pv-list li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.pv-list code {
+  font-family: 'SF Mono', Menlo, monospace;
+  color: var(--text);
+  font-size: 11px;
+}
+.p-side {
+  color: var(--player);
+  font-weight: 500;
+  min-width: 30px;
+}
+.b-side {
+  color: #b0b0b8;
+  font-weight: 500;
+  min-width: 30px;
+}
+.alt-details {
+  margin-top: 8px;
+  font-size: 11px;
+  border-top: 1px solid rgba(95, 208, 255, 0.15);
+  padding-top: 8px;
+}
+.alt-details summary {
+  cursor: pointer;
+  color: var(--muted);
+  user-select: none;
+}
+.alt-details summary:hover { color: var(--text); }
+.alt-list {
+  margin: 6px 0 0;
+  padding-left: 4px;
+  list-style: none;
+}
+.alt-list li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 2px 0;
+  font-family: 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+.alt-list code { color: var(--text); }
+.alt-list .gap {
+  color: var(--danger);
+  margin-left: auto;
+  font-size: 10px;
 }
 
 /* Tutorial */

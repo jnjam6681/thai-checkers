@@ -281,11 +281,136 @@ export function chooseBotMove(board, difficulty) {
   return move || moves[0]
 }
 
-export function recommendMoveForPlayer(board, depth = 10) {
+// แนะนำตาให้ผู้เล่น — ใช้กำลังเดียวกับบอทตามระดับความยากที่เลือก
+export function recommendMoveForPlayer(board, difficulty = 'hard') {
   const moves = getAllMoves(board, 1)
   if (moves.length === 0) return null
-  const { move, score } = searchBestMove(board, 1, depth, 3000)
-  return { move: move || moves[0], score, total: moves.length }
+
+  const cfg = DIFF[difficulty] ?? DIFF.hard
+  const ctx = new SearchContext(Date.now() + cfg.time)
+
+  // Iterative deepening เพื่อหาตาดีที่สุด
+  let best = { score: 0, move: null, depth: 0 }
+  for (let d = 1; d <= cfg.depth; d++) {
+    const r = search(board, 1, d, -Infinity, Infinity, 0, ctx)
+    if (!ctx.aborted && r.move) {
+      best = { score: r.score, move: r.move, depth: d }
+      if (Math.abs(r.score) > MATE - 1000) break
+    } else if (ctx.aborted) break
+  }
+
+  // ดึง principal variation จาก TT (คาดการณ์การเดินถัด)
+  const pv = []
+  {
+    let cb = board, cs = 1
+    for (let i = 0; i < 8; i++) {
+      const e = ctx.tt.get(hashBoard(cb, cs))
+      if (!e?.move) break
+      pv.push({ side: cs, move: e.move })
+      cb = applyMove(cb, e.move); cs = -cs
+    }
+  }
+
+  // จัดอันดับตาทางเลือก (ใช้ TT ที่มีอยู่ ตื้นกว่าเล็กน้อย เพื่อความเร็ว)
+  const rankDepth = Math.min(Math.max(2, best.depth - 2), 6)
+  ctx.deadline = Date.now() + 1500
+  ctx.aborted = false
+  const ranked = []
+  for (const m of moves) {
+    const next = applyMove(board, m)
+    const r = search(next, -1, rankDepth, -Infinity, Infinity, 0, ctx)
+    ranked.push({ move: m, score: r.score })
+  }
+  ranked.sort((a, b) => b.score - a.score)
+
+  return {
+    move: best.move || moves[0],
+    score: best.score,
+    depth: best.depth,
+    total: moves.length,
+    pv,
+    ranked,
+    difficulty
+  }
+}
+
+// เหตุผลละเอียดสำหรับการแนะนำ — คืน array ของเหตุผล
+export function explainRecommendation(beforeBoard, analysis) {
+  if (!analysis?.move) return []
+  const reasons = []
+  const move = analysis.move
+  const [tr, tc] = move.path[move.path.length - 1]
+  const piece = beforeBoard[move.from[0]][move.from[1]]
+
+  if (move.captures.length >= 3) {
+    reasons.push(`🎯 กิน ${move.captures.length} ตัวรวด — combo ใหญ่!`)
+  } else if (move.captures.length === 2) {
+    reasons.push(`🎯 Multi-jump กินติดกัน 2 ตัว`)
+  } else if (move.captures.length === 1) {
+    reasons.push(`🎯 กินตัวฝ่ายตรงข้าม 1 ตัว (กินบังคับ)`)
+  }
+
+  if (!isKing(piece) && tr === 0) {
+    reasons.push('👑 เลื่อนขั้นเป็นฮอส — ได้ตัวบินทแยงระยะไกล')
+  }
+
+  // วิเคราะห์ defense / threat
+  const beforeOpp = getAllMoves(beforeBoard, -1)
+  const beforeMaxCap = beforeOpp.reduce((m, x) => Math.max(m, x.captures.length), 0)
+  const after = applyMove(beforeBoard, move)
+  const afterOpp = getAllMoves(after, -1)
+  const afterMaxCap = afterOpp.reduce((m, x) => Math.max(m, x.captures.length), 0)
+
+  if (beforeMaxCap > 0 && afterMaxCap < beforeMaxCap) {
+    reasons.push(`🛡️ ป้องกันตัวที่กำลังจะโดนกิน (จาก ${beforeMaxCap} เหลือ ${afterMaxCap} ตัว)`)
+  }
+
+  const willBeCaptured = afterOpp.some(m =>
+    m.captures.length > 0 && m.captures.some(([cr, cc]) => cr === tr && cc === tc))
+  if (willBeCaptured) {
+    if (analysis.score >= 0) {
+      reasons.push('♟️ ยอมแลกตัวเพื่อกลยุทธ์ใหญ่ (คาดว่าได้คืนมากกว่าเสีย)')
+    } else {
+      reasons.push('⚠️ ระวัง อาจถูกกินตอบในตาถัดไป')
+    }
+  }
+
+  const distCenter = Math.abs(3.5 - tr) + Math.abs(3.5 - tc)
+  if (distCenter <= 2 && move.captures.length === 0) {
+    reasons.push('🎯 ลงกึ่งกลางกระดาน — เพิ่มทางเลือกการเดิน')
+  }
+
+  if (!isKing(piece) && move.captures.length === 0) {
+    const adv = 7 - tr
+    if (adv >= 5) reasons.push(`⬆️ รุกถึงแถวที่ ${8 - tr} ใกล้เลื่อนขั้น`)
+    else if (adv >= 3) reasons.push('⬆️ พัฒนาเบี้ยขึ้นหน้า')
+  }
+
+  if (afterOpp.length === 0) {
+    reasons.push('🏆 ทำให้บอทเดินไม่ได้ — ชนะแน่!')
+  } else if (afterOpp.length <= 2) {
+    reasons.push(`🔒 จำกัดทางเลือกบอทเหลือ ${afterOpp.length} ตา`)
+  }
+
+  // สร้างคำคุกคาม (ตาถัดไปจะกินได้)
+  // (ดูง่าย ๆ ว่าบอทเลือก move ที่บอทคิดว่าดีสุดแล้ว เราจะมีตากินไหม)
+  if (analysis.pv && analysis.pv.length >= 3) {
+    const oursNext = analysis.pv[2]
+    if (oursNext?.move?.captures?.length) {
+      reasons.push(`🎲 หลังบอทตอบ คุณจะกินคืนได้ ${oursNext.move.captures.length} ตัว`)
+    }
+  }
+
+  // เปรียบเทียบกับตาอื่น
+  if (analysis.ranked && analysis.ranked.length > 1) {
+    const gap = analysis.ranked[0].score - analysis.ranked[1].score
+    if (gap > 200) reasons.push(`🌟 เด่นชัด — ดีกว่าตาอื่น ${gap.toFixed(0)} แต้ม`)
+    else if (gap > 50) reasons.push(`⭐ ดีกว่าตาอื่นชัดเจน (+${gap.toFixed(0)} แต้ม)`)
+    else if (gap > 10) reasons.push(`✓ ดีกว่าตาอื่นเล็กน้อย (+${gap.toFixed(0)} แต้ม)`)
+  }
+
+  if (reasons.length === 0) reasons.push('รักษารูปขบวน พัฒนาตำแหน่งทีละน้อย')
+  return reasons
 }
 
 export function explainMove(beforeBoard, move, side) {
