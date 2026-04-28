@@ -119,6 +119,8 @@ function exploreCaptures(board, r, c, piece, path, captured, results, originR, o
   for (const ext of possibilities) {
     const newBoard = cloneBoard(board)
     newBoard[r][c] = 0
+    // ลบตัวที่เพิ่งกินออกจากกระดาน เพื่อไม่ให้บล็อกการสแกนของฮอสในตา chain ต่อไป
+    newBoard[ext.capR][ext.capC] = 0
     newBoard[ext.lr][ext.lc] = piece
     const newPath = [...path, [ext.lr, ext.lc]]
     const newCaptured = [...captured, [ext.capR, ext.capC]]

@@ -261,6 +261,13 @@ const DIFF = {
   hard:   { depth: 14, time: 5000 }
 }
 
+// ระบบแนะนำการเดินใช้ depth สูงกว่าบอทในโหมด easy/medium เพื่อให้เก่งกว่าบอท
+const REC_DIFF = {
+  easy:   { depth: 10, time: 3000 },
+  medium: { depth: 10, time: 3000 },
+  hard:   { depth: 14, time: 5000 }
+}
+
 export function chooseBotMove(board, difficulty) {
   const moves = getAllMoves(board, -1)
   if (moves.length === 0) return null
@@ -286,7 +293,7 @@ export function recommendMoveForPlayer(board, difficulty = 'hard') {
   const moves = getAllMoves(board, 1)
   if (moves.length === 0) return null
 
-  const cfg = DIFF[difficulty] ?? DIFF.hard
+  const cfg = REC_DIFF[difficulty] ?? REC_DIFF.hard
   const ctx = new SearchContext(Date.now() + cfg.time)
 
   // Iterative deepening เพื่อหาตาดีที่สุด
