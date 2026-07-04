@@ -30,6 +30,7 @@ export default function App() {
   const [thinking, setThinking] = useState(false)
   const [history, setHistory] = useState([])    // [{ board, turn }]
   const [showCoach, setShowCoach] = useState(true)
+  const [flipped, setFlipped] = useState(false) // true = มองจากฝั่งด้านบน
 
   const allPlayerMoves = useMemo(() => {
     if (turn !== 1 || winner !== 0) return []
@@ -262,6 +263,9 @@ export default function App() {
             <button className="btn" onClick={handleUndo} disabled={history.length === 0 || thinking}>
               ↺ ย้อนตา
             </button>
+            <button className="btn" onClick={() => setFlipped(f => !f)}>
+              🔃 สลับมุมมองกระดาน
+            </button>
             <button className="btn ghost" onClick={handleNewGame}>
               🔄 เริ่มเกมใหม่
             </button>
@@ -270,7 +274,7 @@ export default function App() {
 
         <main className="board-wrap">
           <div className="ranks">
-            {[...'87654321'].map(n => <div key={n} className="rank">{n}</div>)}
+            {[...(flipped ? '12345678' : '87654321')].map(n => <div key={n} className="rank">{n}</div>)}
           </div>
           <div className="board-area">
             <Board
@@ -281,9 +285,10 @@ export default function App() {
               recommendedMove={recommendedMove}
               lastMove={lastMove}
               highlightCaptures={captureHighlight}
+              flipped={flipped}
             />
             <div className="files">
-              {[...'abcdefgh'].map(n => <div key={n} className="file">{n}</div>)}
+              {[...(flipped ? 'hgfedcba' : 'abcdefgh')].map(n => <div key={n} className="file">{n}</div>)}
             </div>
           </div>
         </main>

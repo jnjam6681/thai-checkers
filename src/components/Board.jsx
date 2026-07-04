@@ -10,7 +10,8 @@ export default function Board({
   legalMovesForSelected,   // [{from, path, captures}, ...] ของตัวที่เลือก
   recommendedMove,         // move object หรือ null
   lastMove,                // move object ล่าสุด
-  highlightCaptures        // [[r,c], ...] ตัวที่กำลังจะ/ได้กิน
+  highlightCaptures,       // [[r,c], ...] ตัวที่กำลังจะ/ได้กิน
+  flipped = false          // true = มองจากฝั่งด้านบน (ผู้เล่นอยู่บน)
 }) {
   // คำนวณช่องที่สามารถลงได้ทั้งหมดของตัวที่เลือก (ปลายทางขั้นแรก)
   const destinationSet = useMemo(() => {
@@ -27,11 +28,17 @@ export default function Board({
   const recFrom = recommendedMove?.from
   const recTo = recommendedMove?.path?.[recommendedMove.path.length - 1]
 
+  // ลำดับการวาด (index จริงไม่เปลี่ยน — แค่กลับด้านเวลาแสดงผลเมื่อ flipped)
+  const order = [...Array(BOARD_SIZE).keys()]
+  const rowOrder = flipped ? [...order].reverse() : order
+  const colOrder = flipped ? [...order].reverse() : order
+
   return (
     <div className="board">
-      {board.map((row, r) => (
+      {rowOrder.map(r => (
         <div className="row" key={r}>
-          {row.map((piece, c) => {
+          {colOrder.map(c => {
+            const piece = board[r][c]
             const dark = (r + c) % 2 === 1
             const key = `${r},${c}`
             const isSelected = sameCell(selected, [r, c])
